@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use color_eyre::eyre;
-use ratatui::widgets::ListState;
+use ratatui::widgets::TableState;
 
 use crate::{
     db::{load_db, parse_cli_file, resolve_data_path, save_db},
@@ -17,7 +17,7 @@ pub enum AppMode {
 pub struct App {
     pub items: Vec<Application>,
     selected: usize,
-    pub list_state: ListState,
+    pub table_state: TableState,
     pub mode: AppMode,
     pub input: InputApplication,
     db_file_path: PathBuf,
@@ -25,8 +25,8 @@ pub struct App {
 
 impl App {
     pub fn new() -> eyre::Result<Self> {
-        let mut list_state = ListState::default();
-        list_state.select(Some(0));
+        let mut table_state = TableState::default();
+        table_state.select(Some(0));
 
         let cli_file_param = parse_cli_file()?;
         let db_file_path = resolve_data_path(cli_file_param)?;
@@ -35,7 +35,7 @@ impl App {
         Ok(Self {
             items,
             selected: 0,
-            list_state,
+            table_state,
             mode: AppMode::Normal,
             input: InputApplication::default(),
             db_file_path,
@@ -48,7 +48,7 @@ impl App {
         }
 
         self.selected = (self.selected + 1) % self.items.len();
-        self.list_state.select(Some(self.selected));
+        self.table_state.select(Some(self.selected));
     }
 
     pub fn previous(&mut self) {
@@ -62,7 +62,7 @@ impl App {
             self.selected -= 1;
         }
 
-        self.list_state.select(Some(self.selected));
+        self.table_state.select(Some(self.selected));
     }
 
     pub fn delete(&mut self) {
@@ -76,7 +76,8 @@ impl App {
             self.selected = self.items.len() - 1;
         }
 
-        self.list_state.select(Some(self.selected));
+        self.table_state.select(Some(self.selected));
+        self.save_db();
     }
 
     pub fn start_create(&mut self) {
@@ -109,15 +110,23 @@ impl App {
         }
 
         self.mode = AppMode::Normal;
-        self.list_state.select(Some(self.selected));
+        self.table_state.select(Some(self.selected));
+        self.save_db();
+    }
+
+    pub fn cancel(&mut self) {
+        self.mode = AppMode::Normal;
+    }
+
+    pub fn usage(&self) -> &'static str {
+        "(a - add | e - edit | D - delete | Tab - switch | Enter - save | Esc - cancel | Q - quit)"
+    }
+
+    fn save_db(&self) {
         if let Err(e) = save_db::<Application>(&self.db_file_path, &self.items) {
             eprintln!("Save failed: {e}");
         } else {
             println!("Database saved");
         }
-    }
-
-    pub fn cancel(&mut self) {
-        self.mode = AppMode::Normal;
     }
 }

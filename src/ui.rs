@@ -2,7 +2,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 
 use crate::app::{App, AppMode};
@@ -16,30 +16,56 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     draw_list(frame, app, layout[0]);
     draw_editor(frame, app, layout[1]);
 }
-
 fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
-    let items: Vec<ListItem> = app
+    let rows: Vec<Row> = app
         .items
         .iter()
-        .map(|i| ListItem::new(i.to_string()))
+        .map(|app| {
+            Row::new(vec![
+                Cell::from(app.company_name.clone()),
+                Cell::from(app.origin.clone()),
+                Cell::from(app.description.clone()),
+                Cell::from(app.url.clone()),
+                Cell::from(app.application_status.to_string()),
+                Cell::from(app.application_date.to_rfc3339()),
+            ])
+        })
         .collect();
 
-    let list = List::new(items)
+    let widths = [
+        Constraint::Length(20), // Company
+        Constraint::Length(20), // Origin
+        Constraint::Length(45), // Description
+        Constraint::Length(45), // URL
+        Constraint::Length(12), // Status
+        Constraint::Length(25), // Date
+    ];
+
+    let table = Table::new(rows, widths)
+        .header(
+            Row::new(vec![
+                Cell::from("Company"),
+                Cell::from("Origin"),
+                Cell::from("Description"),
+                Cell::from("URL"),
+                Cell::from("Status"),
+                Cell::from("Date"),
+            ])
+            .style(Style::default().fg(Color::Yellow)),
+        )
         .block(
             Block::default()
-                .title("Job applications")
+                .title("Job Applications")
                 .borders(Borders::ALL),
         )
-        .highlight_style(Style::default().bg(Color::Blue))
+        .row_highlight_style(Style::default().bg(Color::Blue))
         .highlight_symbol("-> ");
 
-    frame.render_stateful_widget(list, area, &mut app.list_state);
+    frame.render_stateful_widget(table, area, &mut app.table_state);
 }
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
-    let block = Block::default()
-        .title("(a - add | e - edit | D - delete | Tab - switch | Enter - save | Esc - cancel | Q - quit)")
-        .borders(Borders::ALL);
+    let block = Block::default().title(app.usage()).borders(Borders::ALL);
 
     let inner = block.inner(area);
 
@@ -63,7 +89,7 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(rows[1]);
 
-    let row2 = Layout::default()
+    let _row2 = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(rows[2]);

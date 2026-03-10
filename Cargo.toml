@@ -15,7 +15,6 @@ directories = "6.0"
 [package.metadata.bundle]
 name = "ghosted"
 identifier = "com.versbinarii.ghosted"
-bin = "ghosted"
 targets = ["dmg", "appimage", "deb"]
 short_description = "Job application tracker"
 

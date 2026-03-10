@@ -9,6 +9,19 @@ pub enum ApplicationStatus {
     Rejected,
     Accepted,
     AwaitingRecruiter,
+    Ghosted,
+}
+
+impl Display for ApplicationStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Applied => write!(f, "Applied"),
+            Self::Rejected => write!(f, "Rejected"),
+            Self::AwaitingRecruiter => write!(f, "Awaiting recruiter"),
+            Self::Accepted => write!(f, "Accepted"),
+            Self::Ghosted => write!(f, "Ghosted"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -40,16 +53,6 @@ impl From<InputApplication> for Application {
             application_status: ApplicationStatus::Applied,
             application_date: Utc::now(),
         }
-    }
-}
-
-impl Display for Application {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:10} | {:20} | {}",
-            self.company_name, self.origin, self.description
-        )
     }
 }
 
