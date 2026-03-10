@@ -2,10 +2,13 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Position, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table},
 };
 
-use crate::app::{App, AppMode};
+use crate::{
+    app::{App, AppMode},
+    models::ApplicationStatus,
+};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     let layout = Layout::default()
@@ -14,8 +17,30 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .split(frame.area());
 
     draw_list(frame, app, layout[0]);
+    draw_status_update(frame, app, layout[0]);
     draw_editor(frame, app, layout[1]);
 }
+
+fn draw_status_update(frame: &mut Frame, app: &mut App, area: Rect) {
+    if let AppMode::UpdateStatus = app.mode {
+        let popup = centered_rect(20, 30, area);
+        let items: Vec<ListItem> = ApplicationStatus::ALL
+            .iter()
+            .map(|a| ListItem::new(a.to_string()))
+            .collect();
+        let list = List::new(items)
+            .block(
+                Block::default()
+                    .title("Application State")
+                    .borders(Borders::ALL),
+            )
+            .highlight_style(Style::default().bg(Color::Blue))
+            .highlight_symbol(app.highlight_symbol.as_str());
+
+        frame.render_stateful_widget(list, popup, &mut app.application_list_state);
+    }
+}
+
 fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
     let rows: Vec<Row> = app
         .items
@@ -37,7 +62,7 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
         Constraint::Length(20), // Origin
         Constraint::Length(45), // Description
         Constraint::Length(45), // URL
-        Constraint::Length(12), // Status
+        Constraint::Length(16), // Status
         Constraint::Length(25), // Date
     ];
 
@@ -59,7 +84,7 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
                 .borders(Borders::ALL),
         )
         .row_highlight_style(Style::default().bg(Color::Blue))
-        .highlight_symbol("-> ");
+        .highlight_symbol(app.highlight_symbol.as_str());
 
     frame.render_stateful_widget(table, area, &mut app.table_state);
 }
@@ -138,20 +163,26 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(description, row0[1]);
     frame.render_widget(origin, row1[0]);
     frame.render_widget(url, row1[1]);
+}
 
-    if matches!(app.mode, AppMode::Creating | AppMode::Editing) {
-        let (x, y) = match app.input.input_field {
-            0 => (
-                row0[0].x + app.input.company_name.len() as u16 + 1,
-                row0[0].y + 1,
-            ),
-            1 => (
-                row0[1].x + app.input.description.len() as u16 + 1,
-                row0[1].y + 1,
-            ),
-            _ => (0, 0),
-        };
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
 
-        frame.set_cursor_position(Position::new(x, y));
-    }
+    let vertical = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1]);
+
+    vertical[1]
 }

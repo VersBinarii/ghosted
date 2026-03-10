@@ -15,10 +15,10 @@ fn main() -> Result<()> {
     loop {
         terminal.draw(|f| ui::ui(f, &mut app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if handle_input(&mut app, key) {
-                break;
-            }
+        if let Event::Key(key) = event::read()?
+            && handle_input(&mut app, key)
+        {
+            break;
         }
     }
 
@@ -35,6 +35,7 @@ fn handle_input(app: &mut App, key: KeyEvent) -> bool {
             KeyCode::Char('a') => app.start_create(),
             KeyCode::Char('e') => app.start_edit(),
             KeyCode::Char('D') => app.delete(),
+            KeyCode::Char('s') => app.update_status(),
             _ => {}
         },
 
@@ -70,6 +71,13 @@ fn handle_input(app: &mut App, key: KeyEvent) -> bool {
                 _ => {}
             },
 
+            _ => {}
+        },
+        AppMode::UpdateStatus => match key.code {
+            KeyCode::Down => app.next_status(),
+            KeyCode::Up => app.previous_status(),
+            KeyCode::Esc => app.cancel_status_update(),
+            KeyCode::Enter => app.confirm_status_update(),
             _ => {}
         },
     }

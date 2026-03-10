@@ -3,13 +3,25 @@ use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum ApplicationStatus {
     Applied,
     Rejected,
     Accepted,
     AwaitingRecruiter,
     Ghosted,
+    ThinkingAboutIt,
+}
+
+impl ApplicationStatus {
+    pub const ALL: [ApplicationStatus; 6] = [
+        Self::Applied,
+        Self::Rejected,
+        Self::Accepted,
+        Self::AwaitingRecruiter,
+        Self::Ghosted,
+        Self::ThinkingAboutIt,
+    ];
 }
 
 impl Display for ApplicationStatus {
@@ -20,6 +32,7 @@ impl Display for ApplicationStatus {
             Self::AwaitingRecruiter => write!(f, "Awaiting recruiter"),
             Self::Accepted => write!(f, "Accepted"),
             Self::Ghosted => write!(f, "Ghosted"),
+            Self::ThinkingAboutIt => write!(f, "Thinking about it"),
         }
     }
 }
