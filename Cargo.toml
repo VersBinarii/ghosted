@@ -12,3 +12,16 @@ serde_json = "1.0"
 chrono = { version = "0.4.44", features = ["serde"] }
 directories = "6.0"
 
+[package.metadata.bundle]
+name = "ghosted"
+identifier = "com.versbinarii.ghosted"
+bin = "ghosted"
+targets = ["dmg", "appimage", "deb"]
+short_description = "Job application tracker"
+
+[package.metadata.bundle.macos]
+category = "public.app-category.productivity"
+frameworks = []
+
+[package.metadata.bundle.linux]
+category = "Utility"
