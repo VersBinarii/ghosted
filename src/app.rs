@@ -14,6 +14,7 @@ pub enum AppMode {
     Editing,
     Creating,
     UpdateStatus,
+    ViewingDetails,
 }
 
 pub struct App {
@@ -58,6 +59,7 @@ impl App {
                 KeyCode::Up => self.previous(),
                 KeyCode::Char('a') => self.start_create(),
                 KeyCode::Char('e') => self.start_edit(),
+                KeyCode::Char('d') => self.open_details(),
                 KeyCode::Char('D') => self.delete(),
                 KeyCode::Char('s') => self.update_status(),
                 _ => {}
@@ -79,6 +81,11 @@ impl App {
                 KeyCode::Enter => self.confirm_status_update(),
                 _ => {}
             },
+
+            AppMode::ViewingDetails => match key.code {
+                KeyCode::Esc => self.close_details(),
+                _ => {}
+            },
         }
 
         false
@@ -94,6 +101,10 @@ impl App {
 
     pub fn input(&self) -> &InputApplication {
         &self.input
+    }
+
+    pub fn selected_item(&self) -> Option<&Application> {
+        self.items.get(self.selected)
     }
 
     pub fn table_state_mut(&mut self) -> &mut TableState {
@@ -158,6 +169,16 @@ impl App {
         }
     }
 
+    pub fn open_details(&mut self) {
+        if !self.items.is_empty() {
+            self.mode = AppMode::ViewingDetails;
+        }
+    }
+
+    pub fn close_details(&mut self) {
+        self.mode = AppMode::Normal;
+    }
+
     pub fn confirm(&mut self) {
         match self.mode {
             AppMode::Creating => {
@@ -185,7 +206,7 @@ impl App {
     }
 
     pub fn usage(&self) -> &'static str {
-        "(s - new status | a - add | e - edit | D - delete | Tab - switch | Enter - save | Esc - cancel | Q - quit)"
+        "(d - details | s - new status | a - add | e - edit | D - delete | Tab - switch | Enter - save | Esc - cancel | Q - quit)"
     }
 
     pub fn update_status(&mut self) {
@@ -228,7 +249,7 @@ impl App {
     }
 
     fn next_input_field(&mut self) {
-        self.input.input_field = (self.input.input_field + 1) % 4;
+        self.input.input_field = (self.input.input_field + 1) % 5;
     }
 
     fn backspace_input(&mut self) {
@@ -245,6 +266,9 @@ impl App {
             3 => {
                 self.input.url.pop();
             }
+            4 => {
+                self.input.comments.pop();
+            }
             _ => {}
         }
     }
@@ -255,6 +279,7 @@ impl App {
             1 => self.input.description.push(c),
             2 => self.input.origin.push(c),
             3 => self.input.url.push(c),
+            4 => self.input.comments.push(c),
             _ => {}
         }
     }

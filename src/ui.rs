@@ -1,8 +1,8 @@
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, Wrap},
 };
 
 use crate::{
@@ -13,12 +13,13 @@ use crate::{
 pub fn ui(frame: &mut Frame, app: &mut App) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(10), Constraint::Length(11)])
+        .constraints([Constraint::Min(10), Constraint::Length(14)])
         .split(frame.area());
 
     draw_list(frame, app, layout[0]);
     draw_status_update(frame, app, layout[0]);
     draw_editor(frame, app, layout[1]);
+    draw_details_popup(frame, app, frame.area());
 }
 
 fn draw_status_update(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -114,11 +115,12 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),
-            Constraint::Length(4),
-            Constraint::Length(4),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(6),
         ])
         .split(inner);
+
     let row0 = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -129,17 +131,13 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(rows[1]);
 
-    let _row2 = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(rows[2]);
-
     let input = app.input();
 
     let company_style = active_field_style(is_editing, input.input_field, 0);
     let description_style = active_field_style(is_editing, input.input_field, 1);
     let origin_style = active_field_style(is_editing, input.input_field, 2);
     let url_style = active_field_style(is_editing, input.input_field, 3);
+    let comments_style = active_field_style(is_editing, input.input_field, 4);
 
     let company = Paragraph::new(input.company_name.as_str()).block(
         Block::default()
@@ -173,10 +171,99 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
             .title_style(url_style),
     );
 
+    let comments = Paragraph::new(input.comments.as_str())
+        .wrap(Wrap { trim: false })
+        .block(
+            Block::default()
+                .title("Comments")
+                .borders(Borders::ALL)
+                .border_style(comments_style)
+                .title_style(comments_style),
+        );
+
     frame.render_widget(company, row0[0]);
     frame.render_widget(description, row0[1]);
     frame.render_widget(origin, row1[0]);
     frame.render_widget(url, row1[1]);
+    frame.render_widget(comments, rows[2]);
+}
+
+fn draw_details_popup(frame: &mut Frame, app: &mut App, area: Rect) {
+    if !matches!(app.mode(), AppMode::ViewingDetails) {
+        return;
+    }
+
+    let Some(selected) = app.selected_item() else {
+        return;
+    };
+
+    let popup = centered_rect(70, 70, area);
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(11), Constraint::Min(5)])
+        .margin(1)
+        .split(popup);
+
+    let detail_rows = vec![
+        Row::new(vec![
+            Cell::from("Company"),
+            Cell::from(selected.company_name.clone()),
+        ]),
+        Row::new(vec![
+            Cell::from("Origin"),
+            Cell::from(selected.origin.clone()),
+        ]),
+        Row::new(vec![
+            Cell::from("Description"),
+            Cell::from(selected.description.clone()),
+        ]),
+        Row::new(vec![Cell::from("URL"), Cell::from(selected.url.clone())]),
+        Row::new(vec![
+            Cell::from("Status"),
+            Cell::from(selected.application_status.to_string()),
+        ]),
+        Row::new(vec![
+            Cell::from("Date"),
+            Cell::from(selected.application_date.to_rfc3339()),
+        ]),
+    ];
+
+    let details_table = Table::new(
+        detail_rows,
+        [Constraint::Length(14), Constraint::Min(10)],
+    )
+    .block(
+        Block::default()
+            .title("Application Details")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow))
+            .title_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+    )
+    .column_spacing(1);
+
+    let comments = Paragraph::new(selected.comments.as_str())
+        .wrap(Wrap { trim: false })
+        .block(
+            Block::default()
+                .title("Comments")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title_style(Style::default().fg(Color::Cyan)),
+        );
+
+    frame.render_widget(Clear, popup);
+    frame.render_widget(
+        Block::default()
+            .style(Style::default().bg(Color::Black))
+            .borders(Borders::ALL),
+        popup,
+    );
+    frame.render_widget(details_table, sections[0]);
+    frame.render_widget(comments, sections[1]);
 }
 
 fn active_field_style(is_editing: bool, selected_field: usize, field_index: usize) -> Style {

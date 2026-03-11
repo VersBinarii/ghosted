@@ -42,6 +42,7 @@ pub struct Application {
     pub company_name: String,
     pub description: String,
     pub url: String,
+    pub comments: String,
     pub application_status: ApplicationStatus,
     pub origin: String,
     pub application_date: DateTime<Utc>,
@@ -53,6 +54,7 @@ impl Application {
         self.description = v.description.clone();
         self.origin = v.origin.clone();
         self.url = v.url.clone();
+        self.comments = v.comments.clone();
     }
 }
 
@@ -63,6 +65,7 @@ impl From<InputApplication> for Application {
             description: v.description,
             origin: v.origin,
             url: v.url,
+            comments: v.comments,
             application_status: ApplicationStatus::Applied,
             application_date: Utc::now(),
         }
@@ -75,6 +78,7 @@ pub struct InputApplication {
     pub description: String,
     pub url: String,
     pub origin: String,
+    pub comments: String,
     pub input_field: usize,
 }
 
@@ -84,6 +88,7 @@ impl InputApplication {
         self.description.clear();
         self.url.clear();
         self.origin.clear();
+        self.comments.clear();
         self.input_field = 0;
     }
 }
@@ -95,6 +100,7 @@ impl From<&Application> for InputApplication {
             description: value.description.clone(),
             url: value.url.clone(),
             origin: value.origin.clone(),
+            comments: value.comments.clone(),
             input_field: 0,
         }
     }
