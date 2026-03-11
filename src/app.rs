@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use color_eyre::eyre;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::widgets::{ListState, TableState};
 
 use crate::{
@@ -16,15 +17,15 @@ pub enum AppMode {
 }
 
 pub struct App {
-    pub items: Vec<Application>,
+    items: Vec<Application>,
     selected: usize,
-    pub table_state: TableState,
-    pub mode: AppMode,
-    pub input: InputApplication,
+    table_state: TableState,
+    mode: AppMode,
+    input: InputApplication,
     db_file_path: PathBuf,
-    pub application_list_state: ListState,
+    application_list_state: ListState,
     selected_application_state: usize,
-    pub highlight_symbol: String,
+    highlight_symbol: String,
 }
 
 impl App {
@@ -47,6 +48,64 @@ impl App {
             selected_application_state: 0,
             highlight_symbol: "-> ".to_string(),
         })
+    }
+
+    pub fn handle_key(&mut self, key: KeyEvent) -> bool {
+        match self.mode {
+            AppMode::Normal => match key.code {
+                KeyCode::Char('Q') => return true,
+                KeyCode::Down => self.next(),
+                KeyCode::Up => self.previous(),
+                KeyCode::Char('a') => self.start_create(),
+                KeyCode::Char('e') => self.start_edit(),
+                KeyCode::Char('D') => self.delete(),
+                KeyCode::Char('s') => self.update_status(),
+                _ => {}
+            },
+
+            AppMode::Creating | AppMode::Editing => match key.code {
+                KeyCode::Esc => self.cancel(),
+                KeyCode::Enter => self.confirm(),
+                KeyCode::Tab => self.next_input_field(),
+                KeyCode::Backspace => self.backspace_input(),
+                KeyCode::Char(c) => self.push_input_char(c),
+                _ => {}
+            },
+
+            AppMode::UpdateStatus => match key.code {
+                KeyCode::Down => self.next_status(),
+                KeyCode::Up => self.previous_status(),
+                KeyCode::Esc => self.cancel_status_update(),
+                KeyCode::Enter => self.confirm_status_update(),
+                _ => {}
+            },
+        }
+
+        false
+    }
+
+    pub fn mode(&self) -> &AppMode {
+        &self.mode
+    }
+
+    pub fn items(&self) -> &[Application] {
+        &self.items
+    }
+
+    pub fn input(&self) -> &InputApplication {
+        &self.input
+    }
+
+    pub fn table_state_mut(&mut self) -> &mut TableState {
+        &mut self.table_state
+    }
+
+    pub fn application_list_state_mut(&mut self) -> &mut ListState {
+        &mut self.application_list_state
+    }
+
+    pub fn highlight_symbol(&self) -> &str {
+        &self.highlight_symbol
     }
 
     pub fn next(&mut self) {
@@ -103,7 +162,6 @@ impl App {
         match self.mode {
             AppMode::Creating => {
                 self.items.push(Application::from(self.input.clone()));
-
                 self.selected = self.items.len() - 1;
             }
 
@@ -132,6 +190,7 @@ impl App {
 
     pub fn update_status(&mut self) {
         self.mode = AppMode::UpdateStatus;
+        self.selected_application_state = 0;
         self.application_list_state.select(Some(0));
     }
 
@@ -166,6 +225,38 @@ impl App {
 
         self.mode = AppMode::Normal;
         self.save_db();
+    }
+
+    fn next_input_field(&mut self) {
+        self.input.input_field = (self.input.input_field + 1) % 4;
+    }
+
+    fn backspace_input(&mut self) {
+        match self.input.input_field {
+            0 => {
+                self.input.company_name.pop();
+            }
+            1 => {
+                self.input.description.pop();
+            }
+            2 => {
+                self.input.origin.pop();
+            }
+            3 => {
+                self.input.url.pop();
+            }
+            _ => {}
+        }
+    }
+
+    fn push_input_char(&mut self, c: char) {
+        match self.input.input_field {
+            0 => self.input.company_name.push(c),
+            1 => self.input.description.push(c),
+            2 => self.input.origin.push(c),
+            3 => self.input.url.push(c),
+            _ => {}
+        }
     }
 
     fn save_db(&self) {

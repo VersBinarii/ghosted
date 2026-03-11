@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Position, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table},
 };
@@ -22,12 +22,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 }
 
 fn draw_status_update(frame: &mut Frame, app: &mut App, area: Rect) {
-    if let AppMode::UpdateStatus = app.mode {
+    if matches!(app.mode(), AppMode::UpdateStatus) {
         let popup = centered_rect(20, 30, area);
         let items: Vec<ListItem> = ApplicationStatus::ALL
             .iter()
             .map(|a| ListItem::new(a.to_string()))
             .collect();
+        let highlight_symbol = app.highlight_symbol().to_string();
+
         let list = List::new(items)
             .block(
                 Block::default()
@@ -35,15 +37,15 @@ fn draw_status_update(frame: &mut Frame, app: &mut App, area: Rect) {
                     .borders(Borders::ALL),
             )
             .highlight_style(Style::default().bg(Color::Blue))
-            .highlight_symbol(app.highlight_symbol.as_str());
+            .highlight_symbol(highlight_symbol.as_str());
 
-        frame.render_stateful_widget(list, popup, &mut app.application_list_state);
+        frame.render_stateful_widget(list, popup, app.application_list_state_mut());
     }
 }
 
 fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
     let rows: Vec<Row> = app
-        .items
+        .items()
         .iter()
         .map(|app| {
             Row::new(vec![
@@ -58,13 +60,15 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
         .collect();
 
     let widths = [
-        Constraint::Length(20), // Company
-        Constraint::Length(20), // Origin
-        Constraint::Length(45), // Description
-        Constraint::Length(45), // URL
-        Constraint::Length(16), // Status
-        Constraint::Length(25), // Date
+        Constraint::Length(20),
+        Constraint::Length(20),
+        Constraint::Length(45),
+        Constraint::Length(45),
+        Constraint::Length(16),
+        Constraint::Length(25),
     ];
+
+    let highlight_symbol = app.highlight_symbol().to_string();
 
     let table = Table::new(rows, widths)
         .header(
@@ -84,9 +88,9 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
                 .borders(Borders::ALL),
         )
         .row_highlight_style(Style::default().bg(Color::Blue))
-        .highlight_symbol(app.highlight_symbol.as_str());
+        .highlight_symbol(highlight_symbol.as_str());
 
-    frame.render_stateful_widget(table, area, &mut app.table_state);
+    frame.render_stateful_widget(table, area, app.table_state_mut());
 }
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -119,43 +123,45 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(rows[2]);
 
-    let company_name_style = if app.input.input_field == 0 {
+    let input = app.input();
+
+    let company_name_style = if input.input_field == 0 {
         Style::default().fg(Color::Yellow)
     } else {
         Style::default()
     };
 
-    let description_style = if app.input.input_field == 1 {
+    let description_style = if input.input_field == 1 {
         Style::default().fg(Color::Yellow)
     } else {
         Style::default()
     };
 
-    let origin_style = if app.input.input_field == 2 {
+    let origin_style = if input.input_field == 2 {
         Style::default().fg(Color::Yellow)
     } else {
         Style::default()
     };
 
-    let url_style = if app.input.input_field == 3 {
+    let url_style = if input.input_field == 3 {
         Style::default().fg(Color::Yellow)
     } else {
         Style::default()
     };
 
-    let company = Paragraph::new(app.input.company_name.as_str())
+    let company = Paragraph::new(input.company_name.as_str())
         .style(company_name_style)
         .block(Block::default().title("Company").borders(Borders::ALL));
 
-    let description = Paragraph::new(app.input.description.as_str())
+    let description = Paragraph::new(input.description.as_str())
         .style(description_style)
         .block(Block::default().title("Description").borders(Borders::ALL));
 
-    let origin = Paragraph::new(app.input.origin.as_str())
+    let origin = Paragraph::new(input.origin.as_str())
         .style(origin_style)
         .block(Block::default().title("Origin").borders(Borders::ALL));
 
-    let url = Paragraph::new(app.input.url.as_str())
+    let url = Paragraph::new(input.url.as_str())
         .style(url_style)
         .block(Block::default().title("URL").borders(Borders::ALL));
 
