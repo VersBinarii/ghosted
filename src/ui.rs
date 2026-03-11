@@ -94,7 +94,18 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
-    let block = Block::default().title(app.usage()).borders(Borders::ALL);
+    let is_editing = matches!(app.mode(), AppMode::Creating | AppMode::Editing);
+
+    let section_style = if is_editing {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default()
+    };
+
+    let block = Block::default()
+        .title(app.usage())
+        .borders(Borders::ALL)
+        .border_style(section_style);
 
     let inner = block.inner(area);
 
@@ -125,50 +136,55 @@ fn draw_editor(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let input = app.input();
 
-    let company_name_style = if input.input_field == 0 {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default()
-    };
+    let company_style = active_field_style(is_editing, input.input_field, 0);
+    let description_style = active_field_style(is_editing, input.input_field, 1);
+    let origin_style = active_field_style(is_editing, input.input_field, 2);
+    let url_style = active_field_style(is_editing, input.input_field, 3);
 
-    let description_style = if input.input_field == 1 {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default()
-    };
+    let company = Paragraph::new(input.company_name.as_str()).block(
+        Block::default()
+            .title("Company")
+            .borders(Borders::ALL)
+            .border_style(company_style)
+            .title_style(company_style),
+    );
 
-    let origin_style = if input.input_field == 2 {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default()
-    };
+    let description = Paragraph::new(input.description.as_str()).block(
+        Block::default()
+            .title("Description")
+            .borders(Borders::ALL)
+            .border_style(description_style)
+            .title_style(description_style),
+    );
 
-    let url_style = if input.input_field == 3 {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default()
-    };
+    let origin = Paragraph::new(input.origin.as_str()).block(
+        Block::default()
+            .title("Origin")
+            .borders(Borders::ALL)
+            .border_style(origin_style)
+            .title_style(origin_style),
+    );
 
-    let company = Paragraph::new(input.company_name.as_str())
-        .style(company_name_style)
-        .block(Block::default().title("Company").borders(Borders::ALL));
-
-    let description = Paragraph::new(input.description.as_str())
-        .style(description_style)
-        .block(Block::default().title("Description").borders(Borders::ALL));
-
-    let origin = Paragraph::new(input.origin.as_str())
-        .style(origin_style)
-        .block(Block::default().title("Origin").borders(Borders::ALL));
-
-    let url = Paragraph::new(input.url.as_str())
-        .style(url_style)
-        .block(Block::default().title("URL").borders(Borders::ALL));
+    let url = Paragraph::new(input.url.as_str()).block(
+        Block::default()
+            .title("URL")
+            .borders(Borders::ALL)
+            .border_style(url_style)
+            .title_style(url_style),
+    );
 
     frame.render_widget(company, row0[0]);
     frame.render_widget(description, row0[1]);
     frame.render_widget(origin, row1[0]);
     frame.render_widget(url, row1[1]);
+}
+
+fn active_field_style(is_editing: bool, selected_field: usize, field_index: usize) -> Style {
+    if is_editing && selected_field == field_index {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default()
+    }
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
