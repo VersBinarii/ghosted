@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use chrono::{Datelike, Duration, Local, NaiveDateTime};
 use color_eyre::eyre;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::widgets::{ListState, TableState};
@@ -15,6 +16,7 @@ pub enum AppMode {
     Creating,
     UpdateStatus,
     ViewingDetails,
+    PickingInterviewDate,
 }
 
 pub struct App {
@@ -27,6 +29,7 @@ pub struct App {
     application_list_state: ListState,
     selected_application_state: usize,
     highlight_symbol: String,
+    interview_picker_date: NaiveDateTime,
 }
 
 impl App {
@@ -48,6 +51,7 @@ impl App {
             application_list_state: ListState::default(),
             selected_application_state: 0,
             highlight_symbol: "-> ".to_string(),
+            interview_picker_date: Local::now().naive_local(),
         })
     }
 
@@ -62,6 +66,7 @@ impl App {
                 KeyCode::Char('d') => self.open_details(),
                 KeyCode::Char('D') => self.delete(),
                 KeyCode::Char('s') => self.update_status(),
+                KeyCode::Char('i') => self.open_interview_date_picker(),
                 _ => {}
             },
 
@@ -84,6 +89,22 @@ impl App {
 
             AppMode::ViewingDetails => match key.code {
                 KeyCode::Esc => self.close_details(),
+                _ => {}
+            },
+
+            AppMode::PickingInterviewDate => match key.code {
+                KeyCode::Esc => self.close_interview_date_picker(),
+                KeyCode::Left => self.shift_interview_picker_days(-1),
+                KeyCode::Right => self.shift_interview_picker_days(1),
+                KeyCode::Up => self.shift_interview_picker_days(-7),
+                KeyCode::Down => self.shift_interview_picker_days(7),
+                KeyCode::PageUp => self.shift_interview_picker_months(-1),
+                KeyCode::PageDown => self.shift_interview_picker_months(1),
+                KeyCode::Char('+') => self.shift_interview_picker_minutes(60),
+                KeyCode::Char('-') => self.shift_interview_picker_minutes(-60),
+                KeyCode::Char(']') => self.shift_interview_picker_minutes(15),
+                KeyCode::Char('[') => self.shift_interview_picker_minutes(-15),
+                KeyCode::Enter => self.confirm_interview_date(),
                 _ => {}
             },
         }
@@ -117,6 +138,10 @@ impl App {
 
     pub fn highlight_symbol(&self) -> &str {
         &self.highlight_symbol
+    }
+
+    pub fn interview_picker_date(&self) -> NaiveDateTime {
+        self.interview_picker_date
     }
 
     pub fn next(&mut self) {
@@ -179,6 +204,29 @@ impl App {
         self.mode = AppMode::Normal;
     }
 
+    pub fn open_interview_date_picker(&mut self) {
+        if let Some(item) = self.items.get(self.selected) {
+            self.interview_picker_date = item
+                .interview_date
+                .unwrap_or_else(|| Local::now().naive_local());
+            self.mode = AppMode::PickingInterviewDate;
+        }
+    }
+
+    pub fn close_interview_date_picker(&mut self) {
+        self.mode = AppMode::Normal;
+    }
+
+    pub fn confirm_interview_date(&mut self) {
+        if let Some(item) = self.items.get_mut(self.selected) {
+            item.interview_date = Some(self.interview_picker_date);
+            item.application_status = ApplicationStatus::InterviewScheduled;
+            self.save_db();
+        }
+
+        self.mode = AppMode::Normal;
+    }
+
     pub fn confirm(&mut self) {
         match self.mode {
             AppMode::Creating => {
@@ -208,7 +256,7 @@ impl App {
     pub fn usage(&self) -> &'static str {
         match self.mode {
             AppMode::Normal => {
-                "Main: ↑/↓ move | a add | e edit | d details | s status | D delete | Q quit"
+                "Main: ↑/↓ move | a add | e edit | d details | i interview | s status | D delete | Q quit"
             }
             AppMode::Creating => {
                 "Create: Tab next field | type to edit | Backspace delete | Enter save | Esc cancel"
@@ -216,11 +264,10 @@ impl App {
             AppMode::Editing => {
                 "Edit: Tab next field | type to edit | Backspace delete | Enter save | Esc cancel"
             }
-            AppMode::UpdateStatus => {
-                "Status: ↑/↓ choose status | Enter save | Esc cancel"
-            }
-            AppMode::ViewingDetails => {
-                "Details: Esc close"
+            AppMode::UpdateStatus => "Status: ↑/↓ choose status | Enter save | Esc cancel",
+            AppMode::ViewingDetails => "Details: Esc close",
+            AppMode::PickingInterviewDate => {
+                "Interview: ←/→ day | ↑/↓ week | PgUp/PgDn month | +/- hour | [/ ] minute | Enter save | Esc cancel"
             }
         }
     }
@@ -262,6 +309,49 @@ impl App {
 
         self.mode = AppMode::Normal;
         self.save_db();
+    }
+
+    fn shift_interview_picker_days(&mut self, days: i64) {
+        self.interview_picker_date = self
+            .interview_picker_date
+            .checked_add_signed(Duration::days(days))
+            .unwrap_or(self.interview_picker_date);
+    }
+
+    fn shift_interview_picker_minutes(&mut self, minutes: i64) {
+        self.interview_picker_date = self
+            .interview_picker_date
+            .checked_add_signed(Duration::minutes(minutes))
+            .unwrap_or(self.interview_picker_date);
+    }
+
+    fn shift_interview_picker_months(&mut self, months: i32) {
+        let date = self.interview_picker_date.date();
+        let time = self.interview_picker_date.time();
+
+        let mut year = date.year();
+        let mut month = date.month() as i32 + months;
+
+        while month < 1 {
+            year -= 1;
+            month += 12;
+        }
+
+        while month > 12 {
+            year += 1;
+            month -= 12;
+        }
+
+        let month_u32 = month as u32;
+        let mut day = date.day();
+
+        while chrono::NaiveDate::from_ymd_opt(year, month_u32, day).is_none() && day > 1 {
+            day -= 1;
+        }
+
+        if let Some(new_date) = chrono::NaiveDate::from_ymd_opt(year, month_u32, day) {
+            self.interview_picker_date = NaiveDateTime::new(new_date, time);
+        }
     }
 
     fn next_input_field(&mut self) {

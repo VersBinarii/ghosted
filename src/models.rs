@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -11,16 +11,18 @@ pub enum ApplicationStatus {
     AwaitingRecruiter,
     Ghosted,
     ThinkingAboutIt,
+    InterviewScheduled,
 }
 
 impl ApplicationStatus {
-    pub const ALL: [ApplicationStatus; 6] = [
+    pub const ALL: [ApplicationStatus; 7] = [
         Self::Applied,
         Self::Rejected,
         Self::Accepted,
         Self::AwaitingRecruiter,
         Self::Ghosted,
         Self::ThinkingAboutIt,
+        Self::InterviewScheduled,
     ];
 }
 
@@ -33,6 +35,7 @@ impl Display for ApplicationStatus {
             Self::Accepted => write!(f, "Accepted"),
             Self::Ghosted => write!(f, "Ghosted"),
             Self::ThinkingAboutIt => write!(f, "Thinking about it"),
+            Self::InterviewScheduled => write!(f, "Interview scheduled"),
         }
     }
 }
@@ -46,6 +49,7 @@ pub struct Application {
     pub application_status: ApplicationStatus,
     pub origin: String,
     pub application_date: DateTime<Utc>,
+    pub interview_date: Option<NaiveDateTime>,
 }
 
 impl Application {
@@ -55,6 +59,7 @@ impl Application {
         self.origin = v.origin.clone();
         self.url = v.url.clone();
         self.comments = v.comments.clone();
+        self.interview_date = v.interview_date;
     }
 }
 
@@ -68,6 +73,7 @@ impl From<InputApplication> for Application {
             comments: v.comments,
             application_status: ApplicationStatus::Applied,
             application_date: Utc::now(),
+            interview_date: v.interview_date,
         }
     }
 }
@@ -79,6 +85,7 @@ pub struct InputApplication {
     pub url: String,
     pub origin: String,
     pub comments: String,
+    pub interview_date: Option<NaiveDateTime>,
     pub input_field: usize,
 }
 
@@ -89,6 +96,7 @@ impl InputApplication {
         self.url.clear();
         self.origin.clear();
         self.comments.clear();
+        self.interview_date = None;
         self.input_field = 0;
     }
 }
@@ -101,6 +109,7 @@ impl From<&Application> for InputApplication {
             url: value.url.clone(),
             origin: value.origin.clone(),
             comments: value.comments.clone(),
+            interview_date: value.interview_date,
             input_field: 0,
         }
     }

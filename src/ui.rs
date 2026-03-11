@@ -1,7 +1,9 @@
+use chrono::{Datelike, Duration, NaiveDate};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, Wrap},
 };
 
@@ -20,6 +22,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     draw_status_update(frame, app, layout[0]);
     draw_editor(frame, app, layout[1]);
     draw_details_popup(frame, app, frame.area());
+    draw_interview_date_picker(frame, app, frame.area());
 }
 
 fn draw_status_update(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -55,7 +58,12 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
                 Cell::from(app.description.clone()),
                 Cell::from(app.url.clone()),
                 Cell::from(app.application_status.to_string()),
-                Cell::from(app.application_date.to_rfc3339()),
+                Cell::from(
+                    app.interview_date
+                        .map(|date| date.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_else(|| "-".to_string()),
+                ),
+                Cell::from(app.application_date.format("%Y-%m-%d %H:%M").to_string()),
             ])
         })
         .collect();
@@ -63,9 +71,10 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
     let widths = [
         Constraint::Length(20),
         Constraint::Length(20),
-        Constraint::Length(45),
-        Constraint::Length(45),
-        Constraint::Length(16),
+        Constraint::Length(28),
+        Constraint::Length(28),
+        Constraint::Length(22),
+        Constraint::Length(18),
         Constraint::Length(25),
     ];
 
@@ -79,7 +88,8 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
                 Cell::from("Description"),
                 Cell::from("URL"),
                 Cell::from("Status"),
-                Cell::from("Date"),
+                Cell::from("Interview"),
+                Cell::from("Application date"),
             ])
             .style(Style::default().fg(Color::Yellow)),
         )
@@ -200,7 +210,7 @@ fn draw_details_popup(frame: &mut Frame, app: &mut App, area: Rect) {
     let popup = centered_rect(70, 70, area);
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(11), Constraint::Min(5)])
+        .constraints([Constraint::Length(13), Constraint::Min(5)])
         .margin(1)
         .split(popup);
 
@@ -223,27 +233,33 @@ fn draw_details_popup(frame: &mut Frame, app: &mut App, area: Rect) {
             Cell::from(selected.application_status.to_string()),
         ]),
         Row::new(vec![
+            Cell::from("Interview"),
+            Cell::from(
+                selected
+                    .interview_date
+                    .map(|date| date.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+            ),
+        ]),
+        Row::new(vec![
             Cell::from("Date"),
             Cell::from(selected.application_date.to_rfc3339()),
         ]),
     ];
 
-    let details_table = Table::new(
-        detail_rows,
-        [Constraint::Length(14), Constraint::Min(10)],
-    )
-    .block(
-        Block::default()
-            .title("Application Details")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow))
-            .title_style(
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-    )
-    .column_spacing(1);
+    let details_table = Table::new(detail_rows, [Constraint::Length(14), Constraint::Min(10)])
+        .block(
+            Block::default()
+                .title("Application Details")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title_style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        )
+        .column_spacing(1);
 
     let comments = Paragraph::new(selected.comments.as_str())
         .wrap(Wrap { trim: false })
@@ -264,6 +280,75 @@ fn draw_details_popup(frame: &mut Frame, app: &mut App, area: Rect) {
     );
     frame.render_widget(details_table, sections[0]);
     frame.render_widget(comments, sections[1]);
+}
+
+fn draw_interview_date_picker(frame: &mut Frame, app: &mut App, area: Rect) {
+    if !matches!(app.mode(), AppMode::PickingInterviewDate) {
+        return;
+    }
+
+    let selected = app.interview_picker_date();
+    let selected_date = selected.date();
+    let popup = centered_rect(40, 48, area);
+    let month_start = NaiveDate::from_ymd_opt(selected_date.year(), selected_date.month(), 1)
+        .expect("valid first day of month");
+
+    let weekday_offset = month_start.weekday().num_days_from_monday() as i64;
+    let grid_start = month_start - Duration::days(weekday_offset);
+
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("{} {}", selected_date.format("%B"), selected_date.year()),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("Mo Tu We Th Fr Sa Su"),
+    ];
+
+    for week in 0..6 {
+        let mut spans = Vec::new();
+
+        for day in 0..7 {
+            let date = grid_start + Duration::days((week * 7 + day) as i64);
+            let mut style = if date.month() == selected_date.month() {
+                Style::default()
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+
+            if date == selected_date {
+                style = style.bg(Color::Blue).fg(Color::White);
+            }
+
+            spans.push(Span::styled(format!("{:>2}", date.day()), style));
+
+            if day < 6 {
+                spans.push(Span::raw(" "));
+            }
+        }
+
+        lines.push(Line::from(spans));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(format!(
+        "Selected: {}",
+        selected.format("%Y-%m-%d %H:%M")
+    )));
+    lines.push(Line::from("+/- hour  [/ ] 15 min"));
+    lines.push(Line::from("←/→ day  ↑/↓ week  PgUp/PgDn month"));
+    lines.push(Line::from("Enter save  Esc cancel"));
+
+    let paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .title("Interview Date & Time")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
+
+    frame.render_widget(Clear, popup);
+    frame.render_widget(paragraph, popup);
 }
 
 fn active_field_style(is_editing: bool, selected_field: usize, field_index: usize) -> Style {
