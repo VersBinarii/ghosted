@@ -206,7 +206,23 @@ impl App {
     }
 
     pub fn usage(&self) -> &'static str {
-        "(d - details | s - new status | a - add | e - edit | D - delete | Tab - switch | Enter - save | Esc - cancel | Q - quit)"
+        match self.mode {
+            AppMode::Normal => {
+                "Main: ↑/↓ move | a add | e edit | d details | s status | D delete | Q quit"
+            }
+            AppMode::Creating => {
+                "Create: Tab next field | type to edit | Backspace delete | Enter save | Esc cancel"
+            }
+            AppMode::Editing => {
+                "Edit: Tab next field | type to edit | Backspace delete | Enter save | Esc cancel"
+            }
+            AppMode::UpdateStatus => {
+                "Status: ↑/↓ choose status | Enter save | Esc cancel"
+            }
+            AppMode::ViewingDetails => {
+                "Details: Esc close"
+            }
+        }
     }
 
     pub fn update_status(&mut self) {
