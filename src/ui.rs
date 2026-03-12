@@ -27,7 +27,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
 fn draw_status_update(frame: &mut Frame, app: &mut App, area: Rect) {
     if matches!(app.mode(), AppMode::UpdateStatus) {
-        let popup = centered_rect(20, 30, area);
+        let popup = centered_rect(20, 40, area);
         let items: Vec<ListItem> = ApplicationStatus::ALL
             .iter()
             .map(|a| ListItem::new(a.to_string()))
@@ -379,4 +379,199 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1]);
 
     vertical[1]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        app::{App, AppMode},
+        models::{Application, ApplicationStatus, InputApplication},
+    };
+    use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
+    use ratatui::{Terminal, backend::TestBackend};
+
+    fn sample_application() -> Application {
+        Application {
+            company_name: "Acme".to_string(),
+            description: "Rust Developer".to_string(),
+            url: "https://example.com/job".to_string(),
+            comments: "Strong fit".to_string(),
+            application_status: ApplicationStatus::Applied,
+            origin: "LinkedIn".to_string(),
+            application_date: Utc::now(),
+            interview_date: Some(NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(2025, 3, 20).expect("valid date"),
+                NaiveTime::from_hms_opt(14, 30, 0).expect("valid time"),
+            )),
+        }
+    }
+
+    fn render(app: &mut App, width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("terminal should be created");
+        terminal
+            .draw(|frame| ui(frame, app))
+            .expect("ui should render");
+
+        let backend = terminal.backend();
+        let buffer = backend.buffer().clone();
+
+        let mut text = String::new();
+
+        for y in 0..buffer.area.height {
+            for x in 0..buffer.area.width {
+                text.push_str(buffer[(x, y)].symbol());
+            }
+            text.push('\n');
+        }
+
+        text
+    }
+
+    #[test]
+    fn main_table_renders_headers_and_row_values() {
+        let mut app = App::test_app();
+        app.test_set_items(vec![sample_application()]);
+
+        let output = render(&mut app, 140, 40);
+
+        assert!(output.contains("Job Applications"));
+        assert!(output.contains("Company"));
+        assert!(output.contains("Origin"));
+        assert!(output.contains("Description"));
+        assert!(output.contains("URL"));
+        assert!(output.contains("Status"));
+        assert!(output.contains("Interview"));
+        assert!(output.contains("Application date"));
+        assert!(output.contains("Acme"));
+        assert!(output.contains("LinkedIn"));
+        assert!(output.contains("Rust Developer"));
+        assert!(output.contains("Applied"));
+    }
+
+    #[test]
+    fn editor_renders_input_fields_and_values_in_create_mode() {
+        let mut app = App::test_app();
+        app.test_set_mode(AppMode::Creating);
+        app.test_set_input(InputApplication {
+            company_name: "Acme".to_string(),
+            description: "Backend".to_string(),
+            url: "https://example.com".to_string(),
+            origin: "Referral".to_string(),
+            comments: "Need to follow up".to_string(),
+            interview_date: None,
+            input_field: 0,
+        });
+
+        let output = render(&mut app, 140, 40);
+
+        assert!(output.contains(
+            "Create: Tab next field | type to edit | Backspace delete | Enter save | Esc cancel"
+        ));
+        assert!(output.contains("Company"));
+        assert!(output.contains("Description"));
+        assert!(output.contains("Origin"));
+        assert!(output.contains("URL"));
+        assert!(output.contains("Comments"));
+        assert!(output.contains("Acme"));
+        assert!(output.contains("Backend"));
+        assert!(output.contains("Referral"));
+        assert!(output.contains("https://example.com"));
+        assert!(output.contains("Need to follow up"));
+    }
+
+    #[test]
+    fn status_popup_renders_when_updating_status() {
+        let mut app = App::test_app();
+        app.test_set_mode(AppMode::UpdateStatus);
+
+        let output = render(&mut app, 140, 40);
+
+        assert!(output.contains("Application State"));
+        assert!(output.contains("Applied"));
+        assert!(output.contains("Rejected"));
+        assert!(output.contains("Accepted"));
+        assert!(output.contains("Awaiting recruiter"));
+        assert!(output.contains("Ghosted"));
+        assert!(output.contains("Thinking about it"));
+        assert!(output.contains("Interview scheduled"));
+    }
+
+    #[test]
+    fn details_popup_renders_selected_application_details() {
+        let mut app = App::test_app();
+        app.test_set_items(vec![sample_application()]);
+        app.test_set_mode(AppMode::ViewingDetails);
+
+        let output = render(&mut app, 140, 40);
+
+        assert!(output.contains("Application Details"));
+        assert!(output.contains("Company"));
+        assert!(output.contains("Origin"));
+        assert!(output.contains("Description"));
+        assert!(output.contains("URL"));
+        assert!(output.contains("Status"));
+        assert!(output.contains("Interview"));
+        assert!(output.contains("Date"));
+        assert!(output.contains("Acme"));
+        assert!(output.contains("LinkedIn"));
+        assert!(output.contains("Rust Developer"));
+        assert!(output.contains("https://example.com/job"));
+        assert!(output.contains("Strong fit"));
+    }
+
+    #[test]
+    fn interview_picker_renders_calendar_and_help_text() {
+        let mut app = App::test_app();
+        app.test_set_mode(AppMode::PickingInterviewDate);
+        app.test_set_picker_date(NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2025, 3, 20).expect("valid date"),
+            NaiveTime::from_hms_opt(14, 30, 0).expect("valid time"),
+        ));
+
+        let output = render(&mut app, 140, 40);
+
+        assert!(output.contains("Interview Date & Time"));
+        assert!(output.contains("March 2025"));
+        assert!(output.contains("Mo Tu We Th Fr Sa Su"));
+        assert!(output.contains("Selected: 2025-03-20 14:30"));
+        assert!(output.contains("+/- hour  [/ ] 15 min"));
+        assert!(output.contains("PgUp/PgDn month"));
+        assert!(output.contains("c clear  Enter save  Esc cancel"));
+    }
+
+    #[test]
+    fn details_popup_is_not_rendered_in_normal_mode() {
+        let mut app = App::test_app();
+        app.test_set_items(vec![sample_application()]);
+        app.test_set_mode(AppMode::Normal);
+
+        let output = render(&mut app, 140, 40);
+
+        assert!(!output.contains("Application Details"));
+    }
+
+    #[test]
+    fn centered_rect_returns_middle_area() {
+        let area = Rect::new(0, 0, 100, 50);
+
+        let rect = centered_rect(40, 48, area);
+
+        assert_eq!(rect.width, 40);
+        assert_eq!(rect.height, 24);
+        assert_eq!(rect.x, 30);
+        assert_eq!(rect.y, 13);
+    }
+
+    #[test]
+    fn active_field_style_is_cyan_only_for_selected_field_while_editing() {
+        let selected = active_field_style(true, 2, 2);
+        let not_selected = active_field_style(true, 2, 1);
+        let not_editing = active_field_style(false, 2, 2);
+
+        assert_eq!(selected.fg, Some(Color::Cyan));
+        assert_eq!(not_selected.fg, None);
+        assert_eq!(not_editing.fg, None);
+    }
 }

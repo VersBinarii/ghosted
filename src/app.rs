@@ -406,3 +406,116 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{NaiveDate, NaiveTime, Utc};
+
+    impl App {
+        pub(crate) fn test_app() -> Self {
+            let mut table_state = TableState::default();
+            table_state.select(Some(0));
+
+            Self {
+                items: Vec::new(),
+                selected: 0,
+                table_state,
+                mode: AppMode::Normal,
+                input: InputApplication::default(),
+                db_file_path: std::env::temp_dir().join("ghosted-test.json"),
+                application_list_state: ListState::default(),
+                selected_application_state: 0,
+                highlight_symbol: "-> ".to_string(),
+                interview_picker_date: NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2025, 1, 15).expect("valid date"),
+                    NaiveTime::from_hms_opt(9, 0, 0).expect("valid time"),
+                ),
+            }
+        }
+
+        pub(crate) fn test_set_mode(&mut self, mode: AppMode) {
+            self.mode = mode;
+        }
+
+        pub(crate) fn test_set_items(&mut self, items: Vec<Application>) {
+            self.items = items;
+            self.selected = 0;
+            self.table_state.select(Some(0));
+        }
+
+        pub(crate) fn test_set_selected(&mut self, selected: usize) {
+            self.selected = selected;
+            self.table_state.select(Some(selected));
+        }
+
+        pub(crate) fn test_set_input(&mut self, input: InputApplication) {
+            self.input = input;
+        }
+
+        pub(crate) fn test_set_picker_date(&mut self, value: NaiveDateTime) {
+            self.interview_picker_date = value;
+        }
+    }
+
+    fn sample_application() -> Application {
+        Application {
+            company_name: "Acme".to_string(),
+            description: "Rust Developer".to_string(),
+            url: "https://example.com/job".to_string(),
+            comments: "Looks promising".to_string(),
+            application_status: ApplicationStatus::Applied,
+            origin: "LinkedIn".to_string(),
+            application_date: Utc::now(),
+            interview_date: None,
+        }
+    }
+
+    #[test]
+    fn next_wraps_to_first_item() {
+        let mut app = App::test_app();
+        app.test_set_items(vec![sample_application(), sample_application()]);
+        app.test_set_selected(1);
+
+        app.next();
+
+        assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn previous_wraps_to_last_item() {
+        let mut app = App::test_app();
+        app.test_set_items(vec![sample_application(), sample_application()]);
+
+        app.previous();
+
+        assert_eq!(app.selected, 1);
+    }
+
+    #[test]
+    fn start_edit_loads_selected_item_into_input() {
+        let mut app = App::test_app();
+        let item = sample_application();
+        app.test_set_items(vec![item.clone()]);
+
+        app.start_edit();
+
+        assert!(matches!(app.mode, AppMode::Editing));
+        assert_eq!(app.input.company_name, item.company_name);
+        assert_eq!(app.input.description, item.description);
+        assert_eq!(app.input.origin, item.origin);
+        assert_eq!(app.input.url, item.url);
+        assert_eq!(app.input.comments, item.comments);
+    }
+
+    #[test]
+    fn update_status_selects_first_status() {
+        let mut app = App::test_app();
+
+        app.update_status();
+
+        assert!(matches!(app.mode, AppMode::UpdateStatus));
+        assert_eq!(app.selected_application_state, 0);
+        assert_eq!(app.application_list_state.selected(), Some(0));
+    }
+}
