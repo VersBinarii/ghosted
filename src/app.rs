@@ -104,6 +104,7 @@ impl App {
                 KeyCode::Char('-') => self.shift_interview_picker_minutes(-60),
                 KeyCode::Char(']') => self.shift_interview_picker_minutes(15),
                 KeyCode::Char('[') => self.shift_interview_picker_minutes(-15),
+                KeyCode::Char('c') => self.clear_interview_date(),
                 KeyCode::Enter => self.confirm_interview_date(),
                 _ => {}
             },
@@ -227,6 +228,15 @@ impl App {
         self.mode = AppMode::Normal;
     }
 
+    pub fn clear_interview_date(&mut self) {
+        if let Some(item) = self.items.get_mut(self.selected) {
+            item.interview_date = None;
+            self.save_db();
+        }
+
+        self.mode = AppMode::Normal;
+    }
+
     pub fn confirm(&mut self) {
         match self.mode {
             AppMode::Creating => {
@@ -267,7 +277,7 @@ impl App {
             AppMode::UpdateStatus => "Status: ↑/↓ choose status | Enter save | Esc cancel",
             AppMode::ViewingDetails => "Details: Esc close",
             AppMode::PickingInterviewDate => {
-                "Interview: ←/→ day | ↑/↓ week | PgUp/PgDn month | +/- hour | [/ ] minute | Enter save | Esc cancel"
+                "Interview: ←/→ day | ↑/↓ week | PgUp/PgDn month | +/- hour | [/ ] minute | c clear | Enter save | Esc cancel"
             }
         }
     }

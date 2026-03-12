@@ -338,7 +338,7 @@ fn draw_interview_date_picker(frame: &mut Frame, app: &mut App, area: Rect) {
     )));
     lines.push(Line::from("+/- hour  [/ ] 15 min"));
     lines.push(Line::from("←/→ day  ↑/↓ week  PgUp/PgDn month"));
-    lines.push(Line::from("Enter save  Esc cancel"));
+    lines.push(Line::from("c clear  Enter save  Esc cancel"));
 
     let paragraph = Paragraph::new(lines).block(
         Block::default()
